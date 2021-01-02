@@ -1,0 +1,14 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+pygobject = "*"
+pydbus = "==0.6.0"
+pycairo = "*"
+
+[requires]
+python_version = "3.9"
