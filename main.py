@@ -1,9 +1,11 @@
 import os
 import sys
 from abc import abstractmethod
+from collections import namedtuple
+from dataclasses import dataclass
 from datetime import datetime
 import logging
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 
 from pydbus import SessionBus
 import cairo
@@ -39,7 +41,7 @@ def file_exists(filename):
         os.stat(filename)
         return True
     except FileNotFoundError:
-        log.warning(f'{filename} not found, capturing new screenshot')
+        log.warning(f'File \'{filename}\' not found, capturing new screenshot')
         return False
 
 
@@ -47,7 +49,7 @@ class Tool:
     label: str
 
     @abstractmethod
-    def on_mouse_press(self, event):
+    def on_mouse_press(self, event, color):
         pass
 
     @abstractmethod
@@ -63,6 +65,12 @@ class Tool:
         pass
 
 
+@dataclass
+class R:
+    points: Tuple[Tuple[int, int], Tuple[int, int]]
+    color: Tuple[float, float, float, float]
+
+
 class Rectangle(Tool):
     _start_point: Union[Tuple[int, int], None]
     _end_point: Union[Tuple[int, int], None]
@@ -72,7 +80,7 @@ class Rectangle(Tool):
         self._rectangles = []
         self._start_point = None
         self._end_point = None
-        self._color = (0.6, 0.6, 0.6)
+        self._color = None
         self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(image_rect.width), int(image_rect.height))
         self._context = cairo.Context(self.surface)
 
@@ -80,27 +88,28 @@ class Rectangle(Tool):
         self._context.set_operator(cairo.Operator.CLEAR)
         self._context.paint()
         self._context.set_operator(cairo.Operator.OVER)
-        self._context.set_source_rgb(*self._color)
 
         if self._start_point:
-            self._draw_rectangle(self._start_point, self._end_point)
+            self._draw_rectangle(self._start_point, self._end_point, self._color)
 
         for rect in self._rectangles:
-            self._draw_rectangle(rect[0], rect[1])
+            self._draw_rectangle(rect.points[0], rect.points[1], rect.color)
 
-    def _draw_rectangle(self, start_point, end_point):
+    def _draw_rectangle(self, start_point, end_point, color):
+        self._context.set_source_rgba(*color)
         width = end_point[0] - start_point[0]
         height = end_point[1] - start_point[1]
         self._context.rectangle(*start_point, width, height)
         self._context.stroke()
 
-    def on_mouse_press(self, event):
+    def on_mouse_press(self, event, color):
+        self._color = color
         self._start_point = (event.x, event.y)
         self._end_point = self._start_point
 
     def on_mouse_release(self, event):
         self._end_point = (event.x, event.y)
-        self._rectangles.append((self._start_point, self._end_point))
+        self._rectangles.append(R((self._start_point, self._end_point), self._color))
         self._start_point = None
         self._end_point = None
         self._draw()
@@ -116,23 +125,29 @@ class Rectangle(Tool):
             self._draw()
 
 
+@dataclass
+class Path:
+    points: List[Tuple[float, float]]
+    color: Tuple[float, float, float, float]
+
+
 class Pen(Tool):
     def __init__(self, image_rect):
         self.label = 'Pen'
         self._paths = []
         self._path = []
-        self._color = (1, 0, 0)
+        self._color = None
         self._line_width = 3
         self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(image_rect.width), int(image_rect.height))
         self._context = cairo.Context(self.surface)
 
-    def on_mouse_press(self, event):
-        self._context.set_source_rgb(*self._color)
+    def on_mouse_press(self, event, color):
+        self._color = color
         self._context.set_line_width(self._line_width)
 
     def on_mouse_release(self, event):
         log.debug(f'stop drawing, recorded {len(self._path)} points')
-        self._paths.append(list(self._path))
+        self._paths.append(Path(list(self._path), self._color))
         del self._path[:]
 
     def on_mouse_move(self, event):
@@ -144,11 +159,12 @@ class Pen(Tool):
         self._context.paint()
         self._context.set_operator(cairo.Operator.OVER)
 
-        self._draw_path(self._path)
+        self._draw_path(self._path, self._color)
         for path in self._paths:
-            self._draw_path(path)
+            self._draw_path(path.points, path.color)
 
-    def _draw_path(self, points):
+    def _draw_path(self, points, color):
+        self._context.set_source_rgba(*color)
         for i in range(len(points)):
             self._context.move_to(*points[i])
 
@@ -168,6 +184,7 @@ class Main(Gtk.Window):
     def __init__(self, filename):
         Gtk.Window.__init__(self, title='Screenshot annotator')
         self._image_surface = None
+        self._color = (1, 0, 0, 1)
         self._filename = filename
 
         self.offset = [0, 0]
@@ -215,9 +232,10 @@ class Main(Gtk.Window):
     def _setup_header_bar(self):
         header_bar = Gtk.HeaderBar()
         header_bar.set_show_close_button(True)
-        header_bar.props.title = 'Screenshot annotator'
+        header_bar.props.title = self._filename
         self.set_titlebar(header_bar)
         self._setup_tools(header_bar)
+        self._setup_color(header_bar)
         self._setup_undo(header_bar)
         self._setup_operations(header_bar)
 
@@ -241,6 +259,35 @@ class Main(Gtk.Window):
                 self._current_tool = tool
 
         return cb
+
+    def _setup_color(self, header_bar):
+        button = Gtk.Button()
+        drawing_area = Gtk.DrawingArea()
+        drawing_area.connect('draw', self.on_color_picker_draw)
+        button.add(drawing_area)
+
+        popover = Gtk.Popover.new(button)
+        color_picker = Gtk.ColorChooserWidget()
+        color_pickerd = Gtk.ColorChooserDialog('Choose color', self)
+        color_pickerd.set_rgba(Gdk.RGBA(*self._color))
+        popover.add(color_picker)
+
+        def open_color_chooser(event):
+            response_id = color_pickerd.run()
+            color_pickerd.hide()
+
+            if response_id == Gtk.ResponseType.OK:
+                rgba = color_pickerd.get_rgba()
+                self._color = (rgba.red, rgba.green, rgba.blue, rgba.alpha)
+                log.debug(f'changed color to {self._color}')
+
+        button.connect('clicked', open_color_chooser)
+
+        header_bar.pack_end(button)
+
+    def on_color_picker_draw(self, widget, cairo_context):
+        cairo_context.set_source_rgba(*self._color)
+        cairo_context.paint()
 
     def _setup_undo(self, header_bar):
         button = Gtk.Button()
@@ -297,7 +344,7 @@ class Main(Gtk.Window):
         self.add(overlay)
 
     def on_mouse_press(self, widget, event):
-        self._current_tool.on_mouse_press(event)
+        self._current_tool.on_mouse_press(event, self._color)
 
     def on_mouse_release(self, widget, event):
         self._current_tool.on_mouse_release(event)
