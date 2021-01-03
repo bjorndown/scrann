@@ -58,6 +58,10 @@ class Tool:
     def on_mouse_move(self, event):
         pass
 
+    @abstractmethod
+    def undo(self):
+        pass
+
 
 class Rectangle(Tool):
     _start_point: Union[Tuple[int, int], None]
@@ -105,14 +109,21 @@ class Rectangle(Tool):
         self._end_point = (event.x, event.y)
         self._draw()
 
+    def undo(self):
+        if len(self._rectangles) > 0:
+            undone_rect = self._rectangles.pop()
+            log.debug(f'undid rect {undone_rect}')
+            self._draw()
+
 
 class Pen(Tool):
     def __init__(self, image_rect):
         self.label = 'Pen'
-        self._points = []
+        self._paths = []
+        self._path = []
         self._color = (1, 0, 0)
         self._line_width = 3
-        self.surface = cairo.RecordingSurface(cairo.CONTENT_COLOR_ALPHA, image_rect)
+        self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(image_rect.width), int(image_rect.height))
         self._context = cairo.Context(self.surface)
 
     def on_mouse_press(self, event):
@@ -120,20 +131,35 @@ class Pen(Tool):
         self._context.set_line_width(self._line_width)
 
     def on_mouse_release(self, event):
-        log.debug(f'stop drawing, recorded {len(self._points)} points')
-        del self._points[:]
+        log.debug(f'stop drawing, recorded {len(self._path)} points')
+        self._paths.append(list(self._path))
+        del self._path[:]
 
     def on_mouse_move(self, event):
-        self._points.append((event.x, event.y))
+        self._path.append((event.x, event.y))
         self._draw()
 
     def _draw(self):
-        for i in range(len(self._points)):
-            self._context.move_to(*self._points[i])
+        self._context.set_operator(cairo.Operator.CLEAR)
+        self._context.paint()
+        self._context.set_operator(cairo.Operator.OVER)
 
-            if i + 1 < len(self._points):
-                self._context.line_to(*self._points[i + 1])
+        self._draw_path(self._path)
+        for path in self._paths:
+            self._draw_path(path)
+
+    def _draw_path(self, points):
+        for i in range(len(points)):
+            self._context.move_to(*points[i])
+
+            if i + 1 < len(points):
+                self._context.line_to(*points[i + 1])
                 self._context.stroke()
+
+    def undo(self):
+        if len(self._paths) > 0:
+            self._paths.pop()
+            self._draw()
 
 
 class Main(Gtk.Window):
@@ -156,9 +182,9 @@ class Main(Gtk.Window):
         self.set_events(Gdk.EventMask.BUTTON_PRESS_MASK)
         self.connect('delete-event', Gtk.main_quit)
         self.show_all()
-        GLib.timeout_add(50, self._tick)
+        GLib.timeout_add(50, self.redraw)
 
-    def _tick(self):
+    def redraw(self):
         self._annotation_area.queue_draw()
         return True
 
@@ -192,6 +218,7 @@ class Main(Gtk.Window):
         header_bar.props.title = 'Screenshot annotator'
         self.set_titlebar(header_bar)
         self._setup_tools(header_bar)
+        self._setup_undo(header_bar)
         self._setup_operations(header_bar)
 
     def _setup_tools(self, header_bar):
@@ -215,20 +242,32 @@ class Main(Gtk.Window):
 
         return cb
 
+    def _setup_undo(self, header_bar):
+        button = Gtk.Button()
+        icon = Gio.ThemedIcon(name="undo")
+        image = Gtk.Image.new_from_gicon(icon, Gtk.IconSize.BUTTON)
+        button.connect('clicked', self.on_undo)
+        button.add(image)
+        header_bar.pack_end(button)
+
+    def on_undo(self, _):
+        self._current_tool.undo()
+
     def _setup_operations(self, header_bar):
         operations_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         Gtk.StyleContext.add_class(operations_box.get_style_context(), 'linked')
 
         save_button = Gtk.Button(label='Save to file')
-        save_button.connect('clicked', self._save_to_file)
+        save_button.connect('clicked', self.save_to_file)
         operations_box.add(save_button)
+
         clipboard_button = Gtk.Button(label='Copy to clipboard')
-        clipboard_button.connect('clicked', self._copy_to_clipboard)
+        clipboard_button.connect('clicked', self.copy_to_clipboard)
         operations_box.add(clipboard_button)
 
         header_bar.pack_start(operations_box)
 
-    def _copy_to_clipboard(self, widget):
+    def copy_to_clipboard(self, widget):
         for tool in self._tools:
             self._image_context.set_source_surface(tool.surface)
             self._image_context.paint()
@@ -238,7 +277,7 @@ class Main(Gtk.Window):
             Gdk.pixbuf_get_from_surface(self._image_surface, 0, 0, self._image_rect.width, self._image_rect.height))
         log.debug('saved annotated image to clipboard')
 
-    def _save_to_file(self, widget):
+    def save_to_file(self, widget):
         for tool in self._tools:
             self._image_context.set_source_surface(tool.surface)
             self._image_context.paint()
@@ -252,18 +291,18 @@ class Main(Gtk.Window):
         event_box = Gtk.EventBox()
         overlay.add_overlay(event_box)
         event_box.add(self._annotation_area)
-        event_box.connect('button_press_event', self._on_mouse_press)
-        event_box.connect('button_release_event', self._on_mouse_release)
-        event_box.connect('motion_notify_event', self._on_mouse_move)
+        event_box.connect('button_press_event', self.on_mouse_press)
+        event_box.connect('button_release_event', self.on_mouse_release)
+        event_box.connect('motion_notify_event', self.on_mouse_move)
         self.add(overlay)
 
-    def _on_mouse_press(self, widget, event):
+    def on_mouse_press(self, widget, event):
         self._current_tool.on_mouse_press(event)
 
-    def _on_mouse_release(self, widget, event):
+    def on_mouse_release(self, widget, event):
         self._current_tool.on_mouse_release(event)
 
-    def _on_mouse_move(self, widget, event):
+    def on_mouse_move(self, widget, event):
         self._current_tool.on_mouse_move(event)
 
 
