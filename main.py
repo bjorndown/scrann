@@ -137,11 +137,12 @@ class Pen(Tool):
 
 
 class Main(Gtk.Window):
-    _current_tool: Tool
+    _current_tool: Union[Tool, None]
 
     def __init__(self, filename):
         Gtk.Window.__init__(self, title='Screenshot annotator')
         self._image_surface = None
+        self._filename = filename
 
         self.offset = [0, 0]
 
@@ -191,10 +192,11 @@ class Main(Gtk.Window):
         header_bar.props.title = 'Screenshot annotator'
         self.set_titlebar(header_bar)
         self._setup_tools(header_bar)
+        self._setup_operations(header_bar)
 
     def _setup_tools(self, header_bar):
-        self._tool_box = box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        Gtk.StyleContext.add_class(box.get_style_context(), 'linked')
+        self._tool_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        Gtk.StyleContext.add_class(self._tool_box.get_style_context(), 'linked')
 
         for tool in self._tools:
             button = Gtk.ToggleButton(label=tool.label)
@@ -212,6 +214,37 @@ class Main(Gtk.Window):
                 self._current_tool = tool
 
         return cb
+
+    def _setup_operations(self, header_bar):
+        operations_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        Gtk.StyleContext.add_class(operations_box.get_style_context(), 'linked')
+
+        save_button = Gtk.Button(label='Save to file')
+        save_button.connect('clicked', self._save_to_file)
+        operations_box.add(save_button)
+        clipboard_button = Gtk.Button(label='Copy to clipboard')
+        clipboard_button.connect('clicked', self._copy_to_clipboard)
+        operations_box.add(clipboard_button)
+
+        header_bar.pack_start(operations_box)
+
+    def _copy_to_clipboard(self, widget):
+        for tool in self._tools:
+            self._image_context.set_source_surface(tool.surface)
+            self._image_context.paint()
+
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        clipboard.set_image(
+            Gdk.pixbuf_get_from_surface(self._image_surface, 0, 0, self._image_rect.width, self._image_rect.height))
+        log.debug('saved annotated image to clipboard')
+
+    def _save_to_file(self, widget):
+        for tool in self._tools:
+            self._image_context.set_source_surface(tool.surface)
+            self._image_context.paint()
+
+        self._image_surface.write_to_png(self._filename)
+        log.debug(f'saved annotated image to {self._filename}')
 
     def _setup_event_box(self):
         overlay = Gtk.Overlay()

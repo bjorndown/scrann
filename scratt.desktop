@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Screenshot annotator
+GenericName=Image Editor
+Comment=Create screenshots and annotate them
+Keywords=graphic;edit;annotate;
+Exec=/home/bjorm/projects/scratt/scratt %f
+TryExec=/home/bjorm/projects/scratt/scratt
+Icon=gimp
+Terminal=false
+Categories=Graphics;2DGraphics;RasterGraphics;GTK;
+StartupNotify=true
+MimeType=image/png;
