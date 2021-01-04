@@ -1,7 +1,6 @@
 import os
 import sys
 from abc import abstractmethod
-from collections import namedtuple
 from dataclasses import dataclass
 from datetime import datetime
 import logging
@@ -15,7 +14,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import GLib, Gtk, Gio, Gdk
 
 logging.basicConfig()
-log = logging.getLogger('scratt')
+log = logging.getLogger('scrann')
 log.setLevel('DEBUG')
 
 
@@ -89,11 +88,11 @@ class Rectangle(Tool):
         self._context.paint()
         self._context.set_operator(cairo.Operator.OVER)
 
-        if self._start_point:
-            self._draw_rectangle(self._start_point, self._end_point, self._color)
-
         for rect in self._rectangles:
             self._draw_rectangle(rect.points[0], rect.points[1], rect.color)
+
+        if self._start_point:
+            self._draw_rectangle(self._start_point, self._end_point, self._color)
 
     def _draw_rectangle(self, start_point, end_point, color):
         self._context.set_source_rgba(*color)
@@ -159,9 +158,10 @@ class Pen(Tool):
         self._context.paint()
         self._context.set_operator(cairo.Operator.OVER)
 
-        self._draw_path(self._path, self._color)
         for path in self._paths:
             self._draw_path(path.points, path.color)
+
+        self._draw_path(self._path, self._color)
 
     def _draw_path(self, points, color):
         self._context.set_source_rgba(*color)
@@ -182,7 +182,7 @@ class Main(Gtk.Window):
     _current_tool: Union[Tool, None]
 
     def __init__(self, filename):
-        Gtk.Window.__init__(self, title='Screenshot annotator')
+        Gtk.Window.__init__(self, title='Scrann')
         self._image_surface = None
         self._color = (1, 0, 0, 1)
         self._filename = filename
@@ -266,11 +266,8 @@ class Main(Gtk.Window):
         drawing_area.connect('draw', self.on_color_picker_draw)
         button.add(drawing_area)
 
-        popover = Gtk.Popover.new(button)
-        color_picker = Gtk.ColorChooserWidget()
         color_pickerd = Gtk.ColorChooserDialog('Choose color', self)
         color_pickerd.set_rgba(Gdk.RGBA(*self._color))
-        popover.add(color_picker)
 
         def open_color_chooser(event):
             response_id = color_pickerd.run()
@@ -353,10 +350,15 @@ class Main(Gtk.Window):
         self._current_tool.on_mouse_move(event)
 
 
-try:
-    filename = sys.argv[1] if len(sys.argv) > 1 and file_exists(sys.argv[1]) else get_screenshot()
-    log.info(f'opening {filename}')
-    win = Main(filename)
-    Gtk.main()
-except KeyboardInterrupt:
-    log.info('bye')
+def main():
+    try:
+        filename = sys.argv[1] if len(sys.argv) > 1 and file_exists(sys.argv[1]) else get_screenshot()
+        log.info(f'opening {filename}')
+        win = Main(filename)
+        Gtk.main()
+    except KeyboardInterrupt:
+        log.info('bye')
+
+
+if __name__ == '__main__':
+    main()

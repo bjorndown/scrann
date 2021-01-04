@@ -1,0 +1,35 @@
+app-id: io.github.bjorm.scrann
+runtime: org.gnome.Platform
+runtime-version: '3.38'
+sdk: org.gnome.Sdk
+command: /app/bin/scrann
+finish-args:
+  - --socket=session-bus
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --filesystem=xdg-pictures
+modules:
+  - name: scrann
+    buildsystem: simple
+    build-options:
+      build-args:
+        - --share=network
+    build-commands:
+      - install -D io.github.bjorm.scrann.metainfo.xml /app/share/metainfo/io.github.bjorm.scrann.metainfo.xml
+      - install -D io.github.bjorm.scrann.desktop /app/share/applications/io.github.bjorm.scrann.desktop
+      - install -D scrann.py /app/bin/scrann.py
+      - install -D setup.py /app/bin/setup.py
+      - install -D requirements.txt /app/bin/requirements.txt
+      - pip3 install --prefix=/app -r requirements.txt .
+      - ls /app/bin
+    sources:
+      - type: file
+        path: scrann.py
+      - type: file
+        path: io.github.bjorm.scrann.metainfo.xml
+      - type: file
+        path: io.github.bjorm.scrann.desktop
+      - type: file
+        path: requirements.txt
+      - type: file
+        path: setup.py
