@@ -274,20 +274,25 @@ class Main(Gtk.Window):
         self._tool_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         Gtk.StyleContext.add_class(self._tool_box.get_style_context(), 'linked')
 
-        for tool in self._tools:
-            button = Gtk.ToggleButton(label=tool.label)
-            button.connect('clicked', self._change_tool(tool))
-            self._tool_box.add(button)
-            if tool.label == self._tools[0].label:
-                button.clicked()
+        def _create_tool_button(_tool):
+            _button = Gtk.RadioButton.new_with_label(None, _tool.label)
+            _button.connect('clicked', self._change_tool(_tool))
+            _button.set_mode(False)
+            self._tool_box.add(_button)
+            return _button
+
+        radio_group = _create_tool_button(self._tools[0])
+
+        for tool in self._tools[1:]:
+            button = _create_tool_button(tool)
+            button.join_group(radio_group)
 
         header_bar.pack_end(self._tool_box)
 
     def _change_tool(self, tool):
         def cb(widget):
-            if widget.get_active():
-                log.debug(f'using {tool.label}')
-                self._current_tool = tool
+            log.debug(f'using {tool.label}')
+            self._current_tool = tool
 
         return cb
 
@@ -322,7 +327,6 @@ class Main(Gtk.Window):
         icon = Gio.ThemedIcon(name='undo')
         image = Gtk.Image.new_from_gicon(icon, Gtk.IconSize.BUTTON)
         button.connect('clicked', self.on_undo)
-        button.add(image)
         header_bar.pack_end(button)
 
     def on_undo(self, _):
