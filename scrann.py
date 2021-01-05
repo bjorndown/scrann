@@ -271,8 +271,7 @@ class Main(Gtk.Window):
         self._setup_operations(header_bar)
 
     def _setup_tools(self, header_bar):
-        self._tool_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        Gtk.StyleContext.add_class(self._tool_box.get_style_context(), 'linked')
+        self._tool_box = Gtk.ButtonBox(orientation=Gtk.Orientation.HORIZONTAL)
 
         def _create_tool_button(_tool):
             _button = Gtk.RadioButton.new_with_label(None, _tool.label)
@@ -323,9 +322,7 @@ class Main(Gtk.Window):
         cairo_context.paint()
 
     def _setup_undo(self, header_bar):
-        button = Gtk.Button()
-        icon = Gio.ThemedIcon(name='undo')
-        image = Gtk.Image.new_from_gicon(icon, Gtk.IconSize.BUTTON)
+        button = Gtk.Button(label='Undo')
         button.connect('clicked', self.on_undo)
         header_bar.pack_end(button)
 
@@ -333,14 +330,13 @@ class Main(Gtk.Window):
         self._current_tool.undo()
 
     def _setup_operations(self, header_bar):
-        operations_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        Gtk.StyleContext.add_class(operations_box.get_style_context(), 'linked')
+        operations_box = Gtk.ButtonBox(orientation=Gtk.Orientation.HORIZONTAL)
 
-        save_button = Gtk.Button(label='Save to file')
+        save_button = Gtk.Button(label='Save')
         save_button.connect('clicked', self.save_to_file)
         operations_box.add(save_button)
 
-        clipboard_button = Gtk.Button(label='Copy to clipboard')
+        clipboard_button = Gtk.Button(label='To clipboard')
         clipboard_button.connect('clicked', self.copy_to_clipboard)
         operations_box.add(clipboard_button)
 
