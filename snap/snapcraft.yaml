@@ -1,0 +1,22 @@
+name: scrann
+version: git
+summary: Create and annotate screenshots
+description: |
+  Create screenshots, annotate and crop them
+base: core18
+confinement: devmode
+
+
+parts:
+  scrann:
+    plugin: python
+    python-version: python3
+    source: .
+    stage-packages:
+      - python-dbus
+      - cairo
+      - pygobject
+
+apps:
+  scrann:
+    command: bin/scrann

@@ -17,17 +17,48 @@ logging.basicConfig()
 log = logging.getLogger('scrann')
 log.setLevel('DEBUG')
 
+_dbus = None
+
+
+def _get_dbus():
+    global _dbus
+    if _dbus is None:
+        _dbus = SessionBus()
+    return _dbus
+
+
+def _notify(msg, replaces_id=0):
+    notifications = _get_dbus().get('.Notifications')
+    return notifications.Notify('scrann', replaces_id, 'dialog-error', 'Scrann', msg, [], {}, 50)
+
+
+def retry(fn, max_tries: int):
+    num_try = 0
+    notification_id = 0
+    while num_try < max_tries:
+        try:
+            return fn()
+        except Exception as e:
+            notification_id = _notify('Selecting area failed, try again', notification_id)
+            log.debug(f'try {num_try} failed with ({str(e)}), retrying')
+            num_try = num_try + 1
+            if num_try == max_tries:
+                notification_id = _notify(f'Selecting area failed {max_tries} times, giving up', notification_id)
+                raise e
+
 
 def get_screenshot():
-    bus = SessionBus()
-    screenshot = bus.get('org.gnome.Shell.Screenshot')
+    screenshot = _get_dbus().get('org.gnome.Shell.Screenshot')
 
     path = os.getenv('HOME', default='/tmp')
     timestamp = datetime.isoformat(datetime.now())
     expected_filename = os.path.join(path, 'Pictures', f'screenshot-{timestamp}.png')
 
-    area = screenshot.SelectArea()
-    success, expected_filename = screenshot.ScreenshotArea(*area, True, expected_filename)
+    def _take_screenshot():
+        area = screenshot.SelectArea()
+        return screenshot.ScreenshotArea(*area, True, expected_filename)
+
+    success, expected_filename = retry(_take_screenshot, 3)
 
     if success:
         return expected_filename
@@ -288,7 +319,7 @@ class Main(Gtk.Window):
 
     def _setup_undo(self, header_bar):
         button = Gtk.Button()
-        icon = Gio.ThemedIcon(name="undo")
+        icon = Gio.ThemedIcon(name='undo')
         image = Gtk.Image.new_from_gicon(icon, Gtk.IconSize.BUTTON)
         button.connect('clicked', self.on_undo)
         button.add(image)
