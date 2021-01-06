@@ -11,7 +11,7 @@ import cairo
 import gi
 
 gi.require_version('Gtk', '3.0')
-from gi.repository import GLib, Gtk, Gio, Gdk
+from gi.repository import GLib, Gtk, Gdk
 
 logging.basicConfig()
 log = logging.getLogger('scrann')
@@ -27,23 +27,35 @@ def _get_dbus():
     return _dbus
 
 
-def _notify(msg, replaces_id=0):
-    notifications = _get_dbus().get('.Notifications')
-    return notifications.Notify('scrann', replaces_id, 'dialog-error', 'Scrann', msg, [], {}, 50)
+class Notifier:
+    def __init__(self, dbus):
+        self._last_notification_id = 0
+        self._notifications = dbus.get('.Notifications')
+
+    def notify(self, msg):
+        self._last_notification_id = self._notifications.Notify('scrann', self._last_notification_id, 'dialog-error',
+                                                                'Scrann', msg, [], {}, 50)
+
+    def clean_up(self):
+        if self._last_notification_id != 0:
+            log.debug('closing notifications')
+            self._notifications.CloseNotification(self._last_notification_id)
+
+
+_notifier = Notifier(_get_dbus())
 
 
 def retry(fn, max_tries: int):
     num_try = 0
-    notification_id = 0
     while num_try < max_tries:
         try:
             return fn()
         except Exception as e:
-            notification_id = _notify('Selecting area failed, try again', notification_id)
+            _notifier.notify('Selecting area failed, try again')
             log.debug(f'try {num_try} failed with ({str(e)}), retrying')
             num_try = num_try + 1
             if num_try == max_tries:
-                notification_id = _notify(f'Selecting area failed {max_tries} times, giving up', notification_id)
+                _notifier.notify(f'Selecting area failed {max_tries} times, giving up')
                 raise e
 
 
@@ -385,10 +397,12 @@ def main():
     try:
         filename = sys.argv[1] if len(sys.argv) > 1 and file_exists(sys.argv[1]) else get_screenshot()
         log.info(f'opening {filename}')
-        win = Main(filename)
+        Main(filename)
         Gtk.main()
     except KeyboardInterrupt:
         log.info('bye')
+    finally:
+        _notifier.clean_up()
 
 
 if __name__ == '__main__':
