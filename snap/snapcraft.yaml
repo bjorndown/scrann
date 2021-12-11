@@ -3,20 +3,50 @@ version: git
 summary: Create and annotate screenshots
 description: |
   Create screenshots, annotate and crop them
-base: core18
+base: core20
 confinement: devmode
-
-
+grade: devel
 parts:
   scrann:
-    plugin: python
-    python-version: python3
     source: .
+    plugin: python
+    build-environment:
+      - SNAPCRAFT_PYTHON_INTERPRETER: python3.8
+    build-packages:
+      - pkg-config
+      - libcairo2
+      - libcairo2-dev
+      - libgirepository1.0-dev
+      - python3.8
+      - python3-wheel
     stage-packages:
-      - python-dbus
-      - cairo
-      - pygobject
+      - python3.8
+      - libcairo-gobject2
+      - libcairo2
+      - libfontconfig1
+      - libfreetype6
+      - libgirepository-1.0-1
+      - libpixman-1-0
+      - libpng16-16
+      - libx11-6
+      - libxau6
+      - libxcb-render0
+      - libxcb-shm0
+      - libxcb1
+      - libxdmcp6
+      - libxext6
+      - libxrender1
+    requirements:
+      - requirements.txt
 
 apps:
   scrann:
     command: bin/scrann
+    plugs:
+      - desktop
+      - desktop-legacy
+      - wayland
+      - unity7
+      - home
+#    extensions:
+#      - gnome-3-34

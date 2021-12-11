@@ -23,3 +23,7 @@ If you want to run it via command line, do
 flatpak run io.github.bjorm.scrann
 ```
 
+## To-do
+- crop tool
+- smooth pen
+- text tool
