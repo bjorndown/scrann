@@ -2,7 +2,6 @@ from typing import Union
 
 import cairo
 import gi
-
 from scrann.log import log
 from scrann.tools import Tool
 from scrann.tools.crop import Crop
@@ -25,7 +24,7 @@ class Main(Gtk.Window):
 
         self._setup_image_surface(filename)
         self._tools = [Pen(self._image_rect), Rectangle(self._image_rect), Crop(self._image_rect)]
-        self._current_tool = None
+        self._current_tool = self._tools[0]
         self._setup_event_box()
         self._setup_header_bar()
 
@@ -87,7 +86,7 @@ class Main(Gtk.Window):
             log.debug(f'connected {_tool.label}')
             _button.connect('toggled', self._change_tool(_tool))
             _button.set_mode(False)
-            _button.set_active(False)
+            _button.set_active(self._current_tool is _tool)
             self._tool_box.add(_button)
             return _button
 
@@ -95,7 +94,7 @@ class Main(Gtk.Window):
 
         for tool in self._tools[1:]:
             button = _create_tool_button(tool)
-            # button.join_group(radio_group)
+            button.join_group(radio_group)
 
         header_bar.pack_end(self._tool_box)
 
