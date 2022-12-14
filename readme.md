@@ -9,7 +9,7 @@ Simple screenshot grabber with annotation capabilities.
 ## How to install
 Requirements:
     
-- Gnome 3.38
+- Gnome 43
 - Flatpak
 
 1. clone repo
@@ -20,7 +20,7 @@ After installing Scrann should appear in your Gnome application menus.
 
 If you want to run it via command line, do
 ```shell
-flatpak run io.github.bjorm.scrann
+flatpak run io.github.bjorndown.scrann
 ```
 
 ## To-do

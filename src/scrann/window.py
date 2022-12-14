@@ -39,7 +39,7 @@ class Main(Gtk.Window):
         self._annotation_area.queue_draw()
         return True
 
-    def _update_image_surface(self, surface):
+    def _update_image_surface(self, surface: cairo.Surface):
         image_rect = cairo.Rectangle(0, 0, surface.get_width(), surface.get_height())
         self.set_default_size(image_rect.width, image_rect.height)
 
@@ -84,8 +84,10 @@ class Main(Gtk.Window):
 
         def _create_tool_button(_tool):
             _button = Gtk.RadioButton.new_with_label(None, _tool.label)
-            _button.connect('clicked', self._change_tool(_tool))
+            log.debug(f'connected {_tool.label}')
+            _button.connect('toggled', self._change_tool(_tool))
             _button.set_mode(False)
+            _button.set_active(False)
             self._tool_box.add(_button)
             return _button
 
@@ -93,7 +95,7 @@ class Main(Gtk.Window):
 
         for tool in self._tools[1:]:
             button = _create_tool_button(tool)
-            button.join_group(radio_group)
+            # button.join_group(radio_group)
 
         header_bar.pack_end(self._tool_box)
 
@@ -186,18 +188,8 @@ class Main(Gtk.Window):
 
     def on_mouse_release(self, widget, event):
         self._current_tool.on_mouse_release(event)
-        if isinstance(self._current_tool, Crop):
-            crop_rect = self._current_tool.crop_rect
-            log.debug(f'crop_rect {crop_rect}')
-            start = self._image_context.user_to_device(crop_rect[0], crop_rect[1])
-            end = self._image_context.user_to_device(crop_rect[2], crop_rect[3])
-            log.debug(f'device crop_rect {start} {end}')
-            height = abs(end[1] - start[1])
-            width = abs(end[0] - start[0])
-            log.debug(f'cropping to {start} {width} {height}')
-            log.debug(f'device offset {self._image_context.get_target().get_device_offset()}')
-            new_surface = self._image_context.get_target().create_for_rectangle(*start, width, height)
-            self._update_image_surface(new_surface)
+        new_surface = self._current_tool.update_surface(self._image_context)
+        self._update_image_surface(new_surface)
 
     def on_mouse_move(self, widget, event):
         log.debug(f'{event.x} {event.y}')

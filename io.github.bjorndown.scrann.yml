@@ -1,0 +1,27 @@
+app-id: io.github.bjorndown.scrann
+runtime: org.gnome.Platform
+runtime-version: '43'
+sdk: org.gnome.Sdk
+command: /app/bin/scrann
+finish-args:
+  - --socket=session-bus
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --filesystem=xdg-pictures
+modules:
+  - name: scrann
+    buildsystem: simple
+    build-options:
+      build-args:
+        - --share=network
+    build-commands:
+      - install -D io.github.bjorndown.scrann.metainfo.xml /app/share/metainfo/io.github.bjorndown.scrann.metainfo.xml
+      - install -D io.github.bjorndown.scrann.desktop /app/share/applications/io.github.bjorndown.scrann.desktop
+      - python -m pip install --prefix=/app/ scrann-0.1.0-py3-none-any.whl
+    sources:
+      - type: file
+        path: dist/scrann-0.1.0-py3-none-any.whl
+      - type: file
+        path: io.github.bjorndown.scrann.metainfo.xml
+      - type: file
+        path: io.github.bjorndown.scrann.desktop

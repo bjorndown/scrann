@@ -11,10 +11,12 @@ class Crop(Tool):
 
     def __init__(self, image_rect):
         super().__init__()
-        self.label = 'Crop'
+        self.label = "Crop"
         self._start_point = None
         self._end_point = None
-        self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(image_rect.width), int(image_rect.height))
+        self.surface = cairo.ImageSurface(
+            cairo.FORMAT_ARGB32, int(image_rect.width), int(image_rect.height)
+        )
         self._context = cairo.Context(self.surface)
         self._fill_color = (0, 0, 0, 0.5)
 
@@ -40,21 +42,18 @@ class Crop(Tool):
 
     def on_mouse_release(self, event):
         self._end_point = (event.x, event.y)
-        self._draw()
+        self._clear_surface()
 
     def on_mouse_move(self, event):
         self._end_point = (event.x, event.y)
         self._draw()
 
     def undo(self):
-        pass
+        pass # TODO
 
-    @property
-    def crop_rect(self):
-        if not self._start_point or not self._end_point:
-            raise RuntimeError('invalid crop rectangle')
-
-        width = self._end_point[0] - self._start_point[0]
-        height = self._end_point[1] - self._start_point[1]
-
-        return *self._start_point, *self._end_point
+    def update_surface(self, context: cairo.Context) -> cairo.Surface:
+        start = context.user_to_device(self._start_point[0], self._start_point[1])
+        end = context.user_to_device(self._end_point[0], self._end_point[1])
+        height = abs(end[1] - start[1])
+        width = abs(end[0] - start[0])
+        return context.get_target().create_for_rectangle(*start, width, height)

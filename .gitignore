@@ -2,3 +2,9 @@
 *.iml
 build-dir/
 .flatpak-builder/
+__pycache__/
+*.egg-info/
+dist/
+build/
+.vscode/
+

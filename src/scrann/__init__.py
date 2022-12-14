@@ -8,6 +8,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
 
+# Entry point for GUI script https://setuptools.pypa.io/en/latest/userguide/entry_point.html#gui-scripts
 def main():
     try:
         get_screenshot(lambda filename: Main(filename))

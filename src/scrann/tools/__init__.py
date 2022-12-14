@@ -29,3 +29,6 @@ class Tool:
     @abstractmethod
     def undo(self):
         pass
+
+    def update_surface(self, context: cairo.Context) -> cairo.Surface:
+        return context.get_target()

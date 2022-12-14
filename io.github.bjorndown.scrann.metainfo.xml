@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-    <id>io.github.bjorm.scrann</id>
+    <id>io.github.bjorndown.scrann</id>
 
     <name>Scrann</name>
     <summary>Create and annotate screenshots</summary>

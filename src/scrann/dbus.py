@@ -68,7 +68,7 @@ def open_uri(uri: str):
     return desktop_portal.OpenURI(parent_window, uri, {})
 
 
-def file_exists(filename):
+def file_exists(filename: str) -> bool:
     try:
         os.stat(filename)
         return True
